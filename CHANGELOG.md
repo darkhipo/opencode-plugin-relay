@@ -21,3 +21,15 @@
   transport, crash-safe arming (intent fingerprint + dead-arm recovery),
   structured observability with a closed vocabulary, and the 22-case unit
   suite that caught a real parser bug before it ever shipped.
+
+## 1.0.5
+
+- Fixed: seven emitted event names were unmapped in the closed vocabulary,
+  collapsing to `warn` and corrupting status rendering — the vocabulary now
+  covers every current event, and a suite test pins code and vocabulary
+  together so the drift class cannot ship again.
+- Docs: the Observability section now states the real schema and all four
+  status sources; Usage gains how-to-find-a-session-id and the cost warning.
+- Synced stale self-descriptions (suite header, CONTRIBUTING counts, the
+  plugin's own first line).
+- Bundle: `check_publish_ready.mjs` no longer ships (publish-time tool).
