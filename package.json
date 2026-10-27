@@ -1,6 +1,6 @@
 {
   "name": "opencode-plugin-relay",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A private wire between two opencode sessions \u2014 model-to-model dialogue with the human wired out. Turns cross whole, counts stay honest, every crossing is logged.",
   "type": "module",
   "main": "index.js",

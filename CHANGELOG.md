@@ -1,3 +1,9 @@
+## 1.1.1
+
+- Fixed: loadState now preserves the 1.1.0 fields (mark, done, self) — a
+  restart mid-ceremony no longer drops identity marks or sign-off flags.
+  Found by thinking through the mark mechanics during the feature's first
+  live dogfood, before it bit.
 ## 1.1.0
 
 - MUTUAL SIGN-OFF: `/relay done` declares this side finished; the relay

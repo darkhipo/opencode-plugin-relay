@@ -304,7 +304,7 @@ export default Plugin.define({
         if (!existsSync(STATE_FILE)) return;
         const raw = JSON.parse(readFileSync(STATE_FILE, "utf8"));
         for (const [sid, r] of Object.entries(raw)) {
-          if (r?.partner) relays.set(sid, { partner: r.partner, turns: r.turns ?? -1, count: r.count ?? 0, speaker: !!r.speaker });
+          if (r?.partner) relays.set(sid, { mark: r.mark, done: !!r.done, partner: r.partner, turns: r.turns ?? -1, count: r.count ?? 0, speaker: !!r.speaker, ...(r.self ? { self: true } : {}) });
         }
         log("state-restored", `${relays.size} entries`);
       } catch (err) { log("state-restore-failed", String(err)); }
