@@ -13,7 +13,7 @@ responses come back. Ping-pong for N forwards, or indefinitely.
 ## Usage
 
 ```
-/relay on <partner-session-id> [turns] [seed]   # turns: -1 = indefinite
+/relay on [-i <your emoji mark>] <partner-session-id> [turns] [seed]   # -1 = indefinite
 /relay id <your emoji mark>                      # self-declared identity
 /relay done                                      # mutual sign-off
 /relay off

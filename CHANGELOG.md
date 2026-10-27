@@ -1,3 +1,12 @@
+## 1.2.0
+
+- THE HELLO PROTOCOL: identity at each end at start. `/relay on -i <mark>`
+  declares the arming side's emoji; the opening invitation asks the partner
+  to declare theirs; and once marks stand, EVERY crossing is addressed
+  FROM \u2192 TO by identity — `[RELAY \ud83c\udf00\ud83c\udf09 \u2192 \ud83e\uded0\u2696\ufe0f]` — unambiguous in any
+  transcript, session short-ids as fallback. The goodbye was already by
+  identity (the mutual sign-off's final ack); now the hello is too, and
+  every message between them is marked both ways.
 ## 1.1.1
 
 - Fixed: loadState now preserves the 1.1.0 fields (mark, done, self) — a

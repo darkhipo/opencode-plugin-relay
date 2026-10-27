@@ -107,7 +107,15 @@ function parseRelayCommand(text) {
   }
   if (sub === "on") {
     let i = 2;
-    while (i < parts.length && parts[i].startsWith("-") && parts[i].length > 1 && parts[i] !== "--") i++;
+    let armMark = null;
+    while (i < parts.length && parts[i].startsWith("-") && parts[i].length > 1 && parts[i] !== "--") {
+      if ((parts[i] === "-i" || parts[i] === "--id") && parts[i + 1] && !parts[i + 1].startsWith("-")) {
+        armMark = parts[i + 1];
+        i += 2;
+        continue;
+      }
+      i++;
+    }
     const rest = parts.slice(i);
     const partner = rest[0];
     if (!partner || partner.startsWith("-")) return { action: "error", message: "usage: /relay on [-flag] <partner-session-id> [turns] [seed prompt]" };
@@ -119,7 +127,7 @@ function parseRelayCommand(text) {
         : Number.isNaN(parsedTurns) && rest.length > 1
           ? rest.slice(1).join(" ").trim() // no turns given: rest is the seed
           : "";
-    return { action: "on", partner, turns, seed };
+    return { action: "on", partner, turns, seed, mark: armMark };
   }
   return { action: "error", message: "usage: /relay on <id> [turns] [seed] | off | status" };
 }
@@ -180,6 +188,11 @@ check(
 );
 // 2.8 off
 check("off parses", parseRelayCommand("/relay off").action === "off");
+// arm-time identity: the -i/--id flag declares the mark at start
+check(
+  "arm with -i mark parses",
+  (() => { const r = parseRelayCommand("/relay on -i \ud83c\udf00 ses_b 8 let us go"); return r.action === "on" && r.mark === "\ud83c\udf00" && r.partner === "ses_b" && r.turns === 8 && r.seed === "let us go"; })()
+);
 // done: the consensus sign-off
 check("done parses", parseRelayCommand("/relay done").action === "done");
 // id: the self-declared emoji mark

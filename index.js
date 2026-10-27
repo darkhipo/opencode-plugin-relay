@@ -198,10 +198,21 @@ function parseRelayCommand(text) {
     // tokens EVERYWHERE — a seed like "use --force and -v flags" was being
     // mangled (a partner-side finding).
     let i = 2;
-    while (i < parts.length && parts[i].startsWith("-") && parts[i].length > 1 && parts[i] !== "--") i++;
+    // IDENTITY AT ARMING: -i <mark> / --id <mark> declares the arming side's
+    // emoji mark as part of the arm itself — identity picked at start, the
+    // protocol's expected shape. Other leading flags skip as before.
+    let armMark = null;
+    while (i < parts.length && parts[i].startsWith("-") && parts[i].length > 1 && parts[i] !== "--") {
+      if ((parts[i] === "-i" || parts[i] === "--id") && parts[i + 1] && !parts[i + 1].startsWith("-")) {
+        armMark = parts[i + 1];
+        i += 2;
+        continue;
+      }
+      i++;
+    }
     const rest = parts.slice(i);
     const partner = rest[0];
-    if (!partner || partner.startsWith("-")) return { action: "error", message: "usage: /relay on [-flag] <partner-session-id> [turns] [seed prompt]" };
+    if (!partner || partner.startsWith("-")) return { action: "error", message: "usage: /relay on [-i <your emoji mark>] <partner-session-id> [turns] [seed prompt]" };
     // TURNS (lenient — a suite-found fix): the old code errored on a
     // non-numeric rest[1] BEFORE the seed fallback could run, leaving the
     // "no turns given: rest is the seed" branch dead code — so
@@ -222,7 +233,7 @@ function parseRelayCommand(text) {
         : Number.isNaN(parsedTurns) && rest.length > 1
           ? rest.slice(1).join(" ").trim() // no turns given: rest is the seed
           : "";
-    return { action: "on", partner, turns, seed };
+    return { action: "on", partner, turns, seed, mark: armMark };
   }
   return { action: "error", message: "usage: /relay on <id> [turns] [seed] | off | status" };
 }
@@ -464,12 +475,12 @@ export default Plugin.define({
                   } catch (e) { log("debug", "prune is best-effort: " + e?.message); }
                 }
               } catch (e) { log("debug", "prune is best-effort: " + e?.message); }
-              relays.set(sid, { partner: sid, turns: cmd.turns, count: 0, speaker: true, self: true });
+              relays.set(sid, { partner: sid, turns: cmd.turns, count: 0, speaker: true, self: true, ...(cmd.mark ? { mark: cmd.mark.slice(0, 24) } : {}) });
               saveState();
               try { rmSync(join(RELAY_HOME, "relay-arm-intent.json"), { force: true }); } catch (e) { log("debug", "best-effort: " + e?.message); }
               log("relay-on-self", `${sid} turns=${cmd.turns}`);
             } else {
-              relays.set(sid, { partner: cmd.partner, turns: cmd.turns, count: 0, speaker: true });
+              relays.set(sid, { partner: cmd.partner, turns: cmd.turns, count: 0, speaker: true, ...(cmd.mark ? { mark: cmd.mark.slice(0, 24) } : {}) });
               relays.set(cmd.partner, { partner: sid, turns: cmd.turns, count: 0, speaker: false });
               saveState();
               try { rmSync(join(RELAY_HOME, "relay-arm-intent.json"), { force: true }); } catch (e) { log("debug", "best-effort: " + e?.message); }
@@ -479,10 +490,13 @@ export default Plugin.define({
             // prompt in the command tail becomes the exchange's turn zero --
             // delivered at arm time, uncounted (the command's own answer is
             // still forward #1). Without a seed the behavior is unchanged.
+            const invite = `[RELAY] Exchange armed${cmd.mark ? " by " + cmd.mark.slice(0, 24) : ""} — declare your side's mark with /relay id <emoji>, and /relay done closes by mutual sign-off when both are satisfied.`;
             if (cmd.seed) {
               log("relay-seed", `${sid}: ${cmd.seed.slice(0, 60)}`);
-              const seedB64 = Buffer.from(cmd.seed, "utf8").toString("base64");
+              const seedB64 = Buffer.from((cmd.seed + "\n\n" + invite), "utf8").toString("base64");
               await notify(cmd.partner, `[RELAY seed] Decode this base64 for the kickoff prompt:\n${seedB64}`);
+            } else {
+              await notify(cmd.partner, invite);
             }
             // fall through: the assistant's answer to the command is forward #1
           } else if (cmd?.action === "off") {
@@ -636,7 +650,15 @@ export default Plugin.define({
       // readable text. KISS.
       if (text.length <= INLINE_LIMIT) {
         const b64 = Buffer.from(text, "utf8").toString("base64");
-        payload = `[RELAY from ${sid.slice(4, 16)}] Decode this base64 to read your partner's message, then reply directly. Your reply is sent back.\n${b64}`;
+        // HELLO PROTOCOL addressing: when marks stand at both ends, every
+        // crossing is signed FROM -> TO by identity — unambiguous in any
+        // transcript. Session short-ids remain the fallback.
+        // Full name (session id) stays in the FROM — it is the legal name.
+        // The emoji mark rides beside it as the nickname; the TO side gets
+        // its nickname when declared, short-id fallback otherwise.
+        const fromLabel = sid.slice(4, 16) + (relay.mark ? " " + relay.mark : "");
+        const toLabel = partner.mark || relay.partner.slice(4, 16);
+        payload = `[RELAY from ${fromLabel} \u2192 ${toLabel}] Decode this base64 to read your partner's message, then reply directly. Your reply is sent back.\n${b64}`;
       } else {
         const refPath = storeRef(text, sid);
         mode = "ref";
