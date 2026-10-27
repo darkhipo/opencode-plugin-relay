@@ -13,13 +13,13 @@ responses come back. Ping-pong for N forwards, or indefinitely.
 ## Usage
 
 ```
-/relay on [-i <your emoji mark>] <partner-session-id> [turns] [seed]   # -1 = indefinite
-/relay id <your emoji mark>                      # self-declared identity
+/relay on <partner-session-id> [turns] [seed]    # -1 = indefinite; each side is then asked to declare its own mark (a sequence of exactly 8 emojis, self-named)
 /relay done                                      # mutual sign-off
 /relay off
 /relay status
 ```
 
+The marks are **self-declared by each side at arm time** — the plugin asks each pane to name itself with exactly 8 emojis, and the pane's own answer is its mark. `/relay id <8 emoji>` redeclares a mark later if a pane wants a new one.
 The seed is the exchange's opening — the words you type around the command
 are delivered as turn zero (uncounted).
 
