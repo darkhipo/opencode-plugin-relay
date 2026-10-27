@@ -91,7 +91,7 @@ rmSync(LOCK_DIR, { recursive: true, force: true });
 // Dashed flags are skipped ONLY in leading position between `on` and the
 // partner id (a seed like "use --force and -v flags" must survive whole).
 // A non-numeric second token means: no turns given → turns default -1 and
-// the rest IS the seed (the suite-found dead-branch fix, 2026-10-26).
+// the rest IS the seed (the suite-found dead-branch fix).
 // ─────────────────────────────────────────────────────────────────────────
 
 function parseRelayCommand(text) {
@@ -120,7 +120,7 @@ function parseRelayCommand(text) {
 }
 
 console.log("parse:");
-// 2.1 the Emissary's flag arming: -s skipped, turns 4, seed intact
+// 2.1 flag-prefixed arming: -s skipped, turns 4, seed intact
 check(
   "flag arming parses",
   (() => {
@@ -214,7 +214,7 @@ check(
 // Section 4: messageText — both persisted message shapes, never guess.
 // User messages persist as {type:"user", text:"..."} (top-level text, no
 // content[]) while assistant messages carry content[] (the tells-proven
-// shape, measured 2026-10-25).
+// shape, measured live).
 // ─────────────────────────────────────────────────────────────────────────
 
 function messageText(message) {

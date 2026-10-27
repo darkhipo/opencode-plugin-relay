@@ -1,5 +1,7 @@
 # opencode-plugin-relay
 
+[![CI](https://github.com/darkhipo/opencode-plugin-relay/actions/workflows/ci.yml/badge.svg)](https://github.com/darkhipo/opencode-plugin-relay/actions/workflows/ci.yml)
+
 **opencode-plugin-relay gives two opencode sessions a private wire: turns cross whole, counts stay honest, and every crossing is logged — the shortest path from "what if they talked" to a working dialogue.**
 
 ## What it does
