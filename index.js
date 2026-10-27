@@ -1,4 +1,4 @@
-// model-relay.js — autonomous model-to-model relay via opencode's native API.
+// opencode-plugin-relay — autonomous model-to-model relay via opencode's native API.
 //
 // THE FEATURE: /relay wires the human OUT of a
 // two-model dialogue. When active, one session's responses are automatically
@@ -113,7 +113,10 @@ function tryLock(key) {
 //   complete dropped warn
 const LOG_EVENTS = new Set([
   "armed", "seeded", "forwarded", "received", "lock-held", "cmd-dedup",
-  "cmd-skip", "empty-skip", "complete", "dropped", "warn",
+  "cmd-skip", "empty-skip", "complete", "dropped", "warn", "debug",
+  // current events the code emits (vocabulary-pin test enforces membership)
+  "arm-recovered", "delivery-dedup", "forward-failed", "prompt-hook-failed",
+  "skip-not-speaker", "stream-restart",
   // legacy event names kept so old lines stay readable; they map to the
   // closed set at write time
 ]);

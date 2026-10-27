@@ -331,5 +331,25 @@ for (let i = 0; i < 600; i++) rememberCommand(`k${i}`);
 check("command-path: cap holds at 500", handledCommands.size === HANDLED_COMMANDS_MAX);
 
 // ─────────────────────────────────────────────────────────────────────────
+// Section 6: vocabulary pinning — every event name the code emits must be
+// a member of the closed set or a legacy-mapped name. Found by cold review:
+// seven emitted names once collapsed to "warn", making debug noise and real
+// failures indistinguishable. This test makes that drift unshippable.
+
+console.log("vocabulary pinning:");
+{
+  const SRC = readFileSync(new URL("./index.js", import.meta.url), "utf8");
+  const emitted = [...new Set([...SRC.matchAll(/log\(\s*"([a-z-]+)"/g)].map((m) => m[1]))];
+  const vocabSrc = SRC.match(/const LOG_EVENTS = new Set\(\[([\s\S]*?)\]\)/)?.[1] ?? "";
+  const vocab = new Set([...vocabSrc.matchAll(/"([a-z-]+)"/g)].map((m) => m[1]));
+  const mapSrc = SRC.match(/const LEGACY_EVENT_MAP = \{([\s\S]*?)\};/)?.[1] ?? "";
+  const mapped = new Set([...mapSrc.matchAll(/"([a-z-]+)":/g)].map((m) => m[1]));
+  const offenders = emitted.filter((e) => !vocab.has(e) && !mapped.has(e));
+  check(
+    "every emitted event is vocabulary or legacy-mapped",
+    emitted.length > 15 && offenders.length === 0
+  );
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

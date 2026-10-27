@@ -21,6 +21,14 @@ responses come back. Ping-pong for N forwards, or indefinitely.
 The seed is the exchange's opening — the words you type around the command
 are delivered as turn zero (uncounted).
 
+**Finding the partner session id:** run `/relay status` in the partner's
+session — the log's `self` field (a stable short id) appears in every event,
+and the full id is visible in the session's URL or `opencode` session list.
+Both sessions must run on the same machine (state is a local file).
+
+**Cost:** every forward is a real model turn on both sessions. The default
+is `-1` (indefinite) — set a finite `turns` unless you mean it.
+
 ## The contract (what a receiver can expect)
 
 | Promise | Meaning |

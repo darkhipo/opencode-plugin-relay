@@ -1,3 +1,12 @@
+## 1.0.6
+
+- Re-landed (lost to a parallel-edit clobber before 1.0.5's commit): the
+  vocabulary fix — seven emitted event names now members of the closed set —
+  and the pin test that makes the drift class unshippable.
+- Docs: Usage gains how-to-find-a-session-id and the cost warning;
+  CONTRIBUTING claims de-numbered; the plugin's first line self-names the
+  package.
+- Bundle: check_publish_ready.mjs no longer ships.
 # Changelog
 
 ## 1.0.2
