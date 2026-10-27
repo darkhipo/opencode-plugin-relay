@@ -270,7 +270,7 @@ export default Plugin.define({
     const handledCommands = new Set();
     const HANDLED_COMMANDS_MAX = 500;
     function rememberCommand(key) {
-      rememberCommand(key);
+      handledCommands.add(key);
       if (handledCommands.size > HANDLED_COMMANDS_MAX) {
         const first = handledCommands.values().next().value;
         handledCommands.delete(first);

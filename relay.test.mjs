@@ -292,6 +292,44 @@ check(
   logLines.some((l) => l.includes("arm intent unreadable/corrupt"))
 );
 
+
+// ─────────────────────────────────────────────────────────────────────────
+// 6. the COMMAND PATH (the quiet-nullness the cold stranger caught: the
+//    published 1.0.1 shipped rememberCommand calling ITSELF — infinite
+//    recursion on every /relay command — while the suite never touched
+//    the path. Two arms now guard it: a structural pin against the
+//    recursive fingerprint, and a behavioral extraction of the cap.
+
+import { readFileSync } from "node:fs";
+const pluginSrc = readFileSync(new URL("./index.js", import.meta.url), "utf8");
+
+check(
+  "rememberCommand adds (no self-call recursion)",
+  /function rememberCommand\(key\) \{\s*handledCommands\.add\(key\);/.test(pluginSrc)
+);
+check(
+  "rememberCommand has no recursive self-call",
+  !/function rememberCommand\(key\) \{\s*rememberCommand\(key\);/.test(pluginSrc)
+);
+
+// Behavioral: the extracted rememberCommand + cap, verbatim semantics.
+const handledCommands = new Set();
+const HANDLED_COMMANDS_MAX = 500;
+function rememberCommand(key) {
+  handledCommands.add(key);
+  if (handledCommands.size > HANDLED_COMMANDS_MAX) {
+    const first = handledCommands.values().next().value;
+    handledCommands.delete(first);
+  }
+}
+rememberCommand("a");
+rememberCommand("b");
+check("command-path: adds keys", handledCommands.has("a") && handledCommands.has("b"));
+rememberCommand("a");
+check("command-path: re-add is idempotent", handledCommands.size === 2);
+for (let i = 0; i < 600; i++) rememberCommand(`k${i}`);
+check("command-path: cap holds at 500", handledCommands.size === HANDLED_COMMANDS_MAX);
+
 // ─────────────────────────────────────────────────────────────────────────
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);
