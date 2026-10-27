@@ -1,3 +1,13 @@
+## 1.3.0
+
+- MARKS ARE DERIVED, NEVER TYPED (Emissary directive): each side's identity
+  mark is four glyphs hashed by the plugin from a seed — the session id by
+  default, or plain words via `/relay id <words>`. `/relay id` alone resets
+  to the session-derived mark. No operator or model ever types an emoji.
+- Removed: the 8-emoji selection domain, the mark-prompt capture flow, and
+  the dangling armMark reference a partial edit left behind (a live
+  ReferenceError on arming).
+- Envelopes, status, and the mutual sign-off carry the derived marks.
 ## 1.2.1
 
 - FULLY-FORMED CEREMONY: the turn-end reload now merges fields — identity

@@ -102,8 +102,8 @@ function parseRelayCommand(text) {
   if (sub === "status") return { action: "status" };
   if (sub === "done") return { action: "done" };
   if (sub === "id") {
-    const mark = text.trim().split(/\s+/).slice(2).join(" ").trim();
-    return mark ? { action: "id", mark } : { action: "error", message: "usage: /relay id <your emoji mark>" };
+    const seed = text.trim().split(/\s+/).slice(2).join(" ").trim();
+    return { action: "id", seed: seed || null };
   }
   if (sub === "on") {
     let i = 2;
@@ -195,12 +195,33 @@ check(
 );
 // done: the consensus sign-off
 check("done parses", parseRelayCommand("/relay done").action === "done");
-// id: the self-declared emoji mark
+// id: WORDS as the seed — the plugin derives the glyphs (no typed emojis)
 check(
-  "id parses with mark",
-  (() => { const r = parseRelayCommand("/relay id 🍉🌀✨"); return r.action === "id" && r.mark === "🍉🌀✨"; })()
+  "id with words seeds the mark",
+  (() => { const r = parseRelayCommand("/relay id fox river"); return r.action === "id" && r.seed === "fox river"; })()
 );
-check("id without mark errors", parseRelayCommand("/relay id").action === "error");
+check(
+  "id without words resets (seed null)",
+  (() => { const r = parseRelayCommand("/relay id"); return r.action === "id" && r.seed === null; })()
+);
+
+// markFromSeed: deterministic derivation, four glyphs, seeds matter
+function markFromSeed(seed) {
+  let h = 2166136261;
+  const src = String(seed || "");
+  for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  let out = "";
+  for (let k = 0; k < 4; k++) {
+    h = Math.imul(h ^ (0x9e3779b9 + k), 16777619) >>> 0;
+    out += MARK_PALETTE[h % MARK_PALETTE.length];
+  }
+  return out;
+}
+const MARK_PALETTE = ["🌀","🔥","🌊","🌉","🌋","🌌","🌑","🌒","🌓","🌔","🌕","🌖","🌗","🌘","🌙","🌠","🌍","🌎","🌏","🌐","⭐","🌟","✨","⚡","🧲","🔭","🔬","🧪","🧿","🗿","🪐","🚀"];
+check("mark is four glyphs", [...markFromSeed("ses_test")].length === 4);
+check("mark is deterministic", markFromSeed("ses_a") === markFromSeed("ses_a"));
+check("distinct seeds derive distinct marks", markFromSeed("ses_a") !== markFromSeed("ses_b"));
+check("empty seed still derives a mark", [...markFromSeed("")].length === 4);
 
 // ─────────────────────────────────────────────────────────────────────────
 // Section 3: base64 transport — the S1 fixture reborn.

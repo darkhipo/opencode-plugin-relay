@@ -141,6 +141,24 @@ function stableShortId(sid) {
   return (h >>> 0).toString(36);
 }
 
+// MARK DERIVATION (Emissary directive, 2026-10-27): identity marks are
+// DERIVED BY THE PLUGIN — never typed. The seed is any text (the session id
+// by default, or words a side names itself with via /relay id <words>);
+// the plugin renders it as four glyphs from a fixed palette. Deterministic,
+// self-owned, and no emoji ever crosses a keyboard or a command line.
+const MARK_PALETTE = ["\u{1F300}","\u{1F525}","\u{1F30A}","\u{1F309}","\u{1F30B}","\u{1F30C}","\u{1F311}","\u{1F312}","\u{1F313}","\u{1F314}","\u{1F315}","\u{1F316}","\u{1F317}","\u{1F318}","\u{1F319}","\u{1F320}","\u{1F30D}","\u{1F30E}","\u{1F30F}","\u{1F310}","\u{2B50}","\u{1F31F}","\u{2728}","\u{26A1}","\u{1F9F2}","\u{1F52D}","\u{1F52C}","\u{1F9EA}","\u{1F9FF}","\u{1F5FF}","\u{1FA90}","\u{1F680}"];
+function markFromSeed(seed) {
+  let h = 2166136261;
+  const src = String(seed || "");
+  for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  let out = "";
+  for (let k = 0; k < 4; k++) {
+    h = Math.imul(h ^ (0x9e3779b9 + k), 16777619) >>> 0;
+    out += MARK_PALETTE[h % MARK_PALETTE.length];
+  }
+  return out;
+}
+
 function log(state, detail, extra) {
   const event = LOG_EVENTS.has(state) ? state : (LEGACY_EVENT_MAP[state] || "warn");
   try {
@@ -189,8 +207,10 @@ function parseRelayCommand(text) {
   if (sub === "status") return { action: "status" };
   if (sub === "done") return { action: "done" };
   if (sub === "id") {
-    const mark = extractMark(text.slice(text.trim().split(/\s+/)[0].length + text.trim().split(/\s+/)[1].length + 2).trim());
-    return mark ? { action: "id", mark } : { action: "error", message: "usage: /relay id <8 emoji>" };
+    // WORDS ONLY (Emissary directive): the side names itself with plain
+    // text; the plugin DERIVES the glyphs. No emoji is ever typed.
+    const seed = text.trim().split(/\s+/).slice(2).join(" ").trim();
+    return { action: "id", seed: seed || null };
   }
   if (sub === "on") {
     // Dashed flags (e.g. -s) are skipped ONLY in the leading position
@@ -228,16 +248,9 @@ function parseRelayCommand(text) {
         : Number.isNaN(parsedTurns) && rest.length > 1
           ? rest.slice(1).join(" ").trim() // no turns given: rest is the seed
           : "";
-    return { action: "on", partner, turns, seed, mark: armMark };
+    return { action: "on", partner, turns, seed };
   }
   return { action: "error", message: "usage: /relay on <id> [turns] [seed] | off | status" };
-}
-
-/** Extract exactly 8 emojis from text — the mark's fixed selection domain. */
-function extractMark(text) {
-  // The extended pictographic ranges; takes the first 8 emoji characters.
-  const emoji = (text || "").match(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F0FF}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}]/gu) || [];
-  return emoji.slice(0, 8).join("");
 }
 
 function messageText(message) {
@@ -327,7 +340,7 @@ export default Plugin.define({
         if (!existsSync(STATE_FILE)) return;
         const raw = JSON.parse(readFileSync(STATE_FILE, "utf8"));
         for (const [sid, r] of Object.entries(raw)) {
-          if (r?.partner) relays.set(sid, { mark: r.mark, done: !!r.done, expectingMark: !!r.expectingMark, partner: r.partner, turns: r.turns ?? -1, count: r.count ?? 0, speaker: !!r.speaker, ...(r.self ? { self: true } : {}) });
+          if (r?.partner) relays.set(sid, { mark: r.mark, done: !!r.done, partner: r.partner, turns: r.turns ?? -1, count: r.count ?? 0, speaker: !!r.speaker, ...(r.self ? { self: true } : {}) });
         }
         log("state-restored", `${relays.size} entries`);
       } catch (err) { log("state-restore-failed", String(err)); }
@@ -487,13 +500,13 @@ export default Plugin.define({
                   } catch (e) { log("debug", "prune is best-effort: " + e?.message); }
                 }
               } catch (e) { log("debug", "prune is best-effort: " + e?.message); }
-              relays.set(sid, { partner: sid, turns: cmd.turns, count: 0, speaker: true, self: true, ...(cmd.mark ? { mark: cmd.mark.slice(0, 24) } : {}) });
+              relays.set(sid, { partner: sid, turns: cmd.turns, count: 0, speaker: true, self: true, mark: markFromSeed(sid) });
               saveState();
               try { rmSync(join(RELAY_HOME, "relay-arm-intent.json"), { force: true }); } catch (e) { log("debug", "best-effort: " + e?.message); }
               log("relay-on-self", `${sid} turns=${cmd.turns}`);
             } else {
-              relays.set(sid, { partner: cmd.partner, turns: cmd.turns, count: 0, speaker: true, expectingMark: true });
-              relays.set(cmd.partner, { partner: sid, turns: cmd.turns, count: 0, speaker: false, expectingMark: true });
+              relays.set(sid, { partner: cmd.partner, turns: cmd.turns, count: 0, speaker: true, mark: markFromSeed(sid) });
+              relays.set(cmd.partner, { partner: sid, turns: cmd.turns, count: 0, speaker: false, mark: markFromSeed(cmd.partner) });
               saveState();
               try { rmSync(join(RELAY_HOME, "relay-arm-intent.json"), { force: true }); } catch (e) { log("debug", "best-effort: " + e?.message); }
               log("relay-on", `${sid} <-> ${cmd.partner} turns=${cmd.turns}`);
@@ -553,10 +566,10 @@ export default Plugin.define({
             // mutual sign-off's final ack. Identity travels as emoji.
             const r = relays.get(sid);
             if (!r) { await notify(sid, "[RELAY] No active relay — marks belong to an armed exchange."); return; }
-            r.mark = cmd.mark.slice(0, 24);
+            r.mark = cmd.seed ? markFromSeed(cmd.seed) : markFromSeed(sid);
             saveState();
             log("id-set", `${sid.slice(0, 14)} mark: ${r.mark}`);
-            await notify(sid, `[RELAY] Mark set: ${r.mark}`);
+            await notify(sid, `[RELAY] Mark: ${r.mark}${cmd.seed ? ` (named "${cmd.seed.slice(0, 40)}")` : " (session-derived)"}`);
             return;
           } else if (cmd?.action === "status") {
             await notify(sid, statusText(sid));
@@ -614,21 +627,6 @@ export default Plugin.define({
       }
       const text = messageText(lastAssistant);
       if (!text.trim()) { log("empty-response", sid.slice(0, 14)); return; }
-
-      // SELF-DECLARED MARK CAPTURE (the Emissary's correction): if this side
-      // was just armed and has not yet declared its mark, the FIRST text it
-      // answers the mark prompt with IS its mark — self-named, never
-      // operator-assigned. Capture it and do not forward (the declaration is
-      // the exchange's identity beat, not a relay forward).
-      if (relay.expectingMark) {
-        const mark = extractMark(text);
-        relay.mark = mark;
-        relay.expectingMark = false;
-        saveState();
-        log("id-declared", `${sid.slice(0, 14)} mark: ${mark}`);
-        await notify(sid, `[RELAY] Mark declared: ${mark}`);
-        return;
-      }
 
       const partner = relays.get(relay.partner);
       if (!partner) { log("partner-gone", relay.partner.slice(0, 14)); relays.delete(sid); saveState(); return; }

@@ -12,8 +12,10 @@ A forwarded response arrives as one turn whose text begins:
 ```
 
 (1.2.0+: when identity marks stand, the header addresses FROM → TO —
-`[RELAY from <full-name> <emoji-mark> → <partner-mark>]` — the session id
-is the full name, the emoji the nickname. Unmarked sides fall back to
+`[RELAY from <full-name> <mark> → <partner-mark>]` — the session id is the
+full name, the derived glyph-mark the nickname. Marks are DERIVED BY THE
+PLUGIN from a seed (session id, or plain words via `/relay id <words>`); no
+emoji is ever typed by an operator or a model. Unmarked sides fall back to
 short-ids. The hello protocol declares marks at arming (`-i`), the mutual
 sign-off closes by them (`/relay done` from each side).)
 
