@@ -116,7 +116,7 @@ const LOG_EVENTS = new Set([
   "cmd-skip", "empty-skip", "complete", "dropped", "warn", "debug",
   // current events the code emits (vocabulary-pin test enforces membership)
   "arm-recovered", "delivery-dedup", "forward-failed", "prompt-hook-failed",
-  "skip-not-speaker", "stream-restart", "signed-off", "skip-signed", "id-set",
+  "skip-not-speaker", "stream-restart", "signed-off", "skip-signed", "id-set", "id-declared",
   // legacy event names kept so old lines stay readable; they map to the
   // closed set at write time
 ]);
@@ -198,16 +198,11 @@ function parseRelayCommand(text) {
     // tokens EVERYWHERE — a seed like "use --force and -v flags" was being
     // mangled (a partner-side finding).
     let i = 2;
-    // IDENTITY AT ARMING: -i <mark> / --id <mark> declares the arming side's
-    // emoji mark as part of the arm itself — identity picked at start, the
-    // protocol's expected shape. Other leading flags skip as before.
-    let armMark = null;
+    // IDENTITY AT ARMING (the Emissary's correction): the mark is NEVER an
+    // operator arg. Each side declares its own mark at arm time (the plugin
+    // prompts each side; each side's own answer is its mark). The arm parser
+    // skips leading dashed flags as before; no mark is read here.
     while (i < parts.length && parts[i].startsWith("-") && parts[i].length > 1 && parts[i] !== "--") {
-      if ((parts[i] === "-i" || parts[i] === "--id") && parts[i + 1] && !parts[i + 1].startsWith("-")) {
-        armMark = parts[i + 1];
-        i += 2;
-        continue;
-      }
       i++;
     }
     const rest = parts.slice(i);
@@ -325,7 +320,7 @@ export default Plugin.define({
         if (!existsSync(STATE_FILE)) return;
         const raw = JSON.parse(readFileSync(STATE_FILE, "utf8"));
         for (const [sid, r] of Object.entries(raw)) {
-          if (r?.partner) relays.set(sid, { mark: r.mark, done: !!r.done, partner: r.partner, turns: r.turns ?? -1, count: r.count ?? 0, speaker: !!r.speaker, ...(r.self ? { self: true } : {}) });
+          if (r?.partner) relays.set(sid, { mark: r.mark, done: !!r.done, expectingMark: !!r.expectingMark, partner: r.partner, turns: r.turns ?? -1, count: r.count ?? 0, speaker: !!r.speaker, ...(r.self ? { self: true } : {}) });
         }
         log("state-restored", `${relays.size} entries`);
       } catch (err) { log("state-restore-failed", String(err)); }
@@ -490,8 +485,8 @@ export default Plugin.define({
               try { rmSync(join(RELAY_HOME, "relay-arm-intent.json"), { force: true }); } catch (e) { log("debug", "best-effort: " + e?.message); }
               log("relay-on-self", `${sid} turns=${cmd.turns}`);
             } else {
-              relays.set(sid, { partner: cmd.partner, turns: cmd.turns, count: 0, speaker: true, ...(cmd.mark ? { mark: cmd.mark.slice(0, 24) } : {}) });
-              relays.set(cmd.partner, { partner: sid, turns: cmd.turns, count: 0, speaker: false });
+              relays.set(sid, { partner: cmd.partner, turns: cmd.turns, count: 0, speaker: true, expectingMark: true });
+              relays.set(cmd.partner, { partner: sid, turns: cmd.turns, count: 0, speaker: false, expectingMark: true });
               saveState();
               try { rmSync(join(RELAY_HOME, "relay-arm-intent.json"), { force: true }); } catch (e) { log("debug", "best-effort: " + e?.message); }
               log("relay-on", `${sid} <-> ${cmd.partner} turns=${cmd.turns}`);
@@ -500,14 +495,17 @@ export default Plugin.define({
             // prompt in the command tail becomes the exchange's turn zero --
             // delivered at arm time, uncounted (the command's own answer is
             // still forward #1). Without a seed the behavior is unchanged.
-            const invite = `[RELAY] Exchange armed${cmd.mark ? " by " + cmd.mark.slice(0, 24) : ""} — declare your side's mark with /relay id <emoji>, and /relay done closes by mutual sign-off when both are satisfied.`;
+            const markPrompt = `[RELAY] Exchange armed — declare your own mark now: reply with one or two emoji that name your side of this conversation. /relay done closes by mutual sign-off when both are satisfied.`;
             if (cmd.seed) {
               log("relay-seed", `${sid}: ${cmd.seed.slice(0, 60)}`);
-              const seedB64 = Buffer.from((cmd.seed + "\n\n" + invite), "utf8").toString("base64");
+              const seedB64 = Buffer.from((cmd.seed + "\n\n" + markPrompt), "utf8").toString("base64");
               await notify(cmd.partner, `[RELAY seed] Decode this base64 for the kickoff prompt:\n${seedB64}`);
             } else {
-              await notify(cmd.partner, invite);
+              await notify(cmd.partner, markPrompt);
             }
+            // Each side is asked to declare its own mark — nobody types emoji
+            // nicknames for a pane-to-pane wire; the panes name themselves.
+            await notify(sid, markPrompt);
             // fall through: the assistant's answer to the command is forward #1
           } else if (cmd?.action === "off") {
             const r = relays.get(sid);
@@ -609,6 +607,21 @@ export default Plugin.define({
       }
       const text = messageText(lastAssistant);
       if (!text.trim()) { log("empty-response", sid.slice(0, 14)); return; }
+
+      // SELF-DECLARED MARK CAPTURE (the Emissary's correction): if this side
+      // was just armed and has not yet declared its mark, the FIRST text it
+      // answers the mark prompt with IS its mark — self-named, never
+      // operator-assigned. Capture it and do not forward (the declaration is
+      // the exchange's identity beat, not a relay forward).
+      if (relay.expectingMark) {
+        const mark = text.trim().split(/\s+/).slice(0, 2).join(" ").slice(0, 24);
+        relay.mark = mark;
+        relay.expectingMark = false;
+        saveState();
+        log("id-declared", `${sid.slice(0, 14)} mark: ${mark}`);
+        await notify(sid, `[RELAY] Mark declared: ${mark}`);
+        return;
+      }
 
       const partner = relays.get(relay.partner);
       if (!partner) { log("partner-gone", relay.partner.slice(0, 14)); relays.delete(sid); saveState(); return; }
