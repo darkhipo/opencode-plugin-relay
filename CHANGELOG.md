@@ -1,3 +1,11 @@
+## 1.3.2
+
+- The publish helper is JavaScript: `scripts/publish_github_packages.mjs`,
+  wired as `npm run publish:github`. No Python in this repo.
+- README: "Failure modes" lists problems a user can hit with the CURRENT
+  release, not ones previous versions fixed. Retired-envelope rows are gone;
+  the instance-skew row now says what `/relay status` actually prints (an
+  `instance: v2-<hash>` line, not a version).
 ## 1.3.1
 
 - Docs only. The README is a manual again: the identity-mark explanation is

@@ -50,21 +50,18 @@ Each skipped turn costs no budget.** A wall of `empty-skip` entries in
 broken. When collaborating over code, interleave a summary line after each
 tool batch; one line keeps the wire warm.
 
-## Failure modes we lived (and what they teach)
+## Failure modes you can hit (and what to do)
 
-| Failure | Symptom | Cause | Cure |
-|---|---|---|---|
-| Stale forward-locks | Every forward dies `lock-held` | A prior run's locks outlive their sweep in old-code instances | External reaping by age; never depend on instance vintage |
-| Instance skew | One window truncates, another doesn't | Mixed plugin versions in memory | Version visible in `/relay status`; tolerate-or-warn |
-| The `---` fence collision | Payloads cut at horizontal rules | The legacy fence IS markdown's `hr` | Retired with the fence — the base64 transport replaced the envelope grammar entirely |
-| Doubled sentinels | Envelope applied twice | Hand-typed sentinels meeting the plugin's wrap | Moot — no envelope grammar ships (base64); the class was designed away, not patched |
-| Silent rotation | Log grows unbounded | `renameSync` unimported, caught silently | Every catch logs; the silence is where the bugs lived |
-| Starved exchange | The wire stalls, turns unspent, both sides armed; a wall of `empty-skip` in status | Tool-only turns carry no text parts — the relay forwards prose, not actions | Documented law: interleave a summary line per tool batch; skipped turns cost nothing; empty-skip means silently working, not broken |
-| Spliced state | Relays silently un-armed after restart | Non-atomic concurrent state writes | Temp-pid + atomic rename; warn on failure |
-| The stale Map | A re-armed relay forwards nothing | The instance's in-memory state Map empty after reload | Re-read the state file from disk at turn-end |
-| Crossed messages | A reply references a send that never seemed to arrive | At wire speed, messages overtake each other | **Crossed messages are normal; the ledger, not your memory, says what arrived** — read the state file's counts |
-| Dead seed fallback | `/relay on <id> <seed>` errors instead of arming | The turns-NaN error return precedes the fallback branch | Caught by the suite before shipping; gate order fixed, both directions pinned |
-| The farewell loop | The exchange refuses to end — goodbyes echo indefinitely | Politeness has no natural terminator; every farewell invites its reply | `/relay done` — the mutual sign-off: both marks agree, the relay closes by ceremony, no goodbye turns spent |
+| Symptom | Why | What to do |
+|---|---|---|
+| Every forward dies `lock-held` | A session killed mid-forward leaves its lock in `relay-locks/` | Locks older than 15 minutes are reaped automatically and `/relay status` prints the lock census — wait out the window instead of restarting anything |
+| One window truncates, another doesn't | Two different plugin builds loaded in different windows | `/relay status` prints an `instance: v2-<hash>` line; compare hashes across windows and restart the odd one |
+| The wire stalls, turns unspent, a wall of `empty-skip` | Tool-only turns carry no text parts — the relay forwards prose, not actions | Interleave one summary line per tool batch (the law above). A skipped turn costs nothing; `empty-skip` means "working silently", not broken |
+| Nothing forwards after a crash or a hand-edited state file | The state file is the source of truth and is re-read at every turn-end; an unparseable file leaves no armed entries | Re-arm with `/relay on …` (which rewrites the file) and read `/relay status` — it reports what the disk holds, not what the process remembers |
+| A reply references a send that seems never to have arrived | At wire speed, messages overtake each other | Crossed messages are normal: the ledger's counts say what arrived, not the order you read them in |
+| Goodbyes echo forever | Politeness has no natural terminator; every farewell invites its reply | `/relay done` from each side — both marks agree and the relay closes by ceremony, no goodbye turns spent |
+| The partner never receives anything | Both sessions must run on one machine; state is a local file | Arm against a session id from this machine — `/relay status` in the partner session prints it |
+
 
 ## Observability
 
