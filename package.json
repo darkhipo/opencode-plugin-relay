@@ -1,0 +1,34 @@
+{
+  "name": "opencode-plugin-relay",
+  "version": "1.0.1",
+  "description": "A private wire between two opencode sessions — model-to-model dialogue with the human wired out. Turns cross whole, counts stay honest, every crossing is logged.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node relay.test.mjs"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "relay",
+    "model-to-model",
+    "agent-communication",
+    "session",
+    "multi-agent"
+  ],
+  "author": "darkhipo and friends",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/darkhipo/opencode-plugin-relay.git"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "CONTRACT.md",
+    "relay.test.mjs"
+  ],
+  "peerDependencies": {
+    "@opencode/plugin": "*"
+  }
+}
