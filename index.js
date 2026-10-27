@@ -116,7 +116,7 @@ const LOG_EVENTS = new Set([
   "cmd-skip", "empty-skip", "complete", "dropped", "warn", "debug",
   // current events the code emits (vocabulary-pin test enforces membership)
   "arm-recovered", "delivery-dedup", "forward-failed", "prompt-hook-failed",
-  "skip-not-speaker", "stream-restart",
+  "skip-not-speaker", "stream-restart", "signed-off", "skip-signed", "id-set",
   // legacy event names kept so old lines stay readable; they map to the
   // closed set at write time
 ]);
@@ -187,6 +187,11 @@ function parseRelayCommand(text) {
   const sub = parts[1]?.toLowerCase();
   if (sub === "off") return { action: "off" };
   if (sub === "status") return { action: "status" };
+  if (sub === "done") return { action: "done" };
+  if (sub === "id") {
+    const mark = text.trim().split(/\s+/).slice(2).join(" ").trim();
+    return mark ? { action: "id", mark } : { action: "error", message: "usage: /relay id <your emoji mark>" };
+  }
   if (sub === "on") {
     // Dashed flags (e.g. -s) are skipped ONLY in the leading position
     // between `on` and the partner id. The first cut filtered dash-prefixed
@@ -321,7 +326,7 @@ export default Plugin.define({
       const lines = [];
       // SOURCE 1: state
       if (r) {
-        lines.push(`[RELAY] Active: you <-> ${r.self ? "self" : stableShortId(r.partner)} · forwards ${r.count}/${r.turns === -1 ? "∞" : r.turns} · you are ${r.speaker ? "the speaker" : "waiting"}`);
+        lines.push(`[RELAY] Active: you <-> ${r.self ? "self" : stableShortId(r.partner)} · forwards ${r.count}/${r.turns === -1 ? "∞" : r.turns} · you are ${r.speaker ? "the speaker" : "waiting"}${r.mark ? " · your mark " + r.mark : ""}${r.done ? " · SIGNED OFF (waiting for partner)" : ""}`);
       } else {
         lines.push("[RELAY] No active relay for this session.");
       }
@@ -486,6 +491,44 @@ export default Plugin.define({
             log("relay-off", `${sid} (was: ${r ? r.partner : "none"})`);
             await notify(sid, "[RELAY] Deactivated.");
             return;
+          } else if (cmd?.action === "done") {
+            // MUTUAL SIGN-OFF (consensus termination): /relay done declares
+            // this side finished. The declaration lives in durable state;
+            // the relay completes when BOTH flags stand. Either signature
+            // suspends the wire — the signer rests, delivery toward the
+            // signer stops — and the second signature closes the relay.
+            // For a finite turn bound this is EARLY STOPPING; for -1 it is
+            // the only natural terminator besides the operator's /relay off.
+            const r = relays.get(sid);
+            if (!r) { await notify(sid, "[RELAY] No active relay to sign off from."); return; }
+            r.done = true;
+            saveState();
+            const p2 = relays.get(r.partner);
+            const mine = (r.mark || "anon").slice(0, 24);
+            const theirs = ((p2 && p2.mark) || "anon").slice(0, 24);
+            if (p2?.done || r.self) {
+              log("relay-complete", `${sid} <-> ${r.partner}: ${r.count} forwards (mutual sign-off ${mine} ${theirs})`);
+              drop(sid);
+              await notify(sid, `[RELAY] Mutual sign-off — ${mine} ${theirs} agree: relay complete. ${r.count} forwards.`);
+              if (r.partner !== sid) await notify(r.partner, `[RELAY] Mutual sign-off — ${mine} ${theirs} agree: relay complete. ${p2.count} forwards.`);
+            } else {
+              log("signed-off", `${sid.slice(0, 14)} (${mine}) waits for the partner's sign-off`);
+              await notify(sid, "[RELAY] Signed off. The wire rests until the partner's /relay done closes it.");
+              await notify(r.partner, `[RELAY] Your partner ${mine} signed off — /relay done when you agree, or keep working.`);
+            }
+            return;
+          } else if (cmd?.action === "id") {
+            // SELF-DECLARED IDENTITY MARK: each side picks its own emoji
+            // glyph — self-declared, self-owned, renamable at will. It
+            // rides the relay's state, renders in status, and stands in the
+            // mutual sign-off's final ack. Identity travels as emoji.
+            const r = relays.get(sid);
+            if (!r) { await notify(sid, "[RELAY] No active relay — marks belong to an armed exchange."); return; }
+            r.mark = cmd.mark.slice(0, 24);
+            saveState();
+            log("id-set", `${sid.slice(0, 14)} mark: ${r.mark}`);
+            await notify(sid, `[RELAY] Mark set: ${r.mark}`);
+            return;
           } else if (cmd?.action === "status") {
             await notify(sid, statusText(sid));
             return;
@@ -536,6 +579,11 @@ export default Plugin.define({
 
       const partner = relays.get(relay.partner);
       if (!partner) { log("partner-gone", relay.partner.slice(0, 14)); relays.delete(sid); saveState(); return; }
+      // MUTUAL SIGN-OFF suspension: once EITHER side signed, no prose
+      // crosses — the signer rests, the partner holds the closing turn,
+      // and the done-command handler completes the relay on the second
+      // signature. No goodbye turns are spent on the wire.
+      if (relay.done || partner.done) { log("skip-signed", `#${relay.count} (sign-off in effect — ${relay.done ? sid.slice(0, 14) : relay.partner.slice(0, 14)} signed)`); return; }
 
       // one instance performs a given forward: post-restart loadState arms
       // EVERY instance, and the speaker flag alone does not dedup across

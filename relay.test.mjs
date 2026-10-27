@@ -100,6 +100,11 @@ function parseRelayCommand(text) {
   const sub = parts[1]?.toLowerCase();
   if (sub === "off") return { action: "off" };
   if (sub === "status") return { action: "status" };
+  if (sub === "done") return { action: "done" };
+  if (sub === "id") {
+    const mark = text.trim().split(/\s+/).slice(2).join(" ").trim();
+    return mark ? { action: "id", mark } : { action: "error", message: "usage: /relay id <your emoji mark>" };
+  }
   if (sub === "on") {
     let i = 2;
     while (i < parts.length && parts[i].startsWith("-") && parts[i].length > 1 && parts[i] !== "--") i++;
@@ -175,6 +180,14 @@ check(
 );
 // 2.8 off
 check("off parses", parseRelayCommand("/relay off").action === "off");
+// done: the consensus sign-off
+check("done parses", parseRelayCommand("/relay done").action === "done");
+// id: the self-declared emoji mark
+check(
+  "id parses with mark",
+  (() => { const r = parseRelayCommand("/relay id 🍉🌀✨"); return r.action === "id" && r.mark === "🍉🌀✨"; })()
+);
+check("id without mark errors", parseRelayCommand("/relay id").action === "error");
 
 // ─────────────────────────────────────────────────────────────────────────
 // Section 3: base64 transport — the S1 fixture reborn.

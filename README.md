@@ -14,6 +14,8 @@ responses come back. Ping-pong for N forwards, or indefinitely.
 
 ```
 /relay on <partner-session-id> [turns] [seed]   # turns: -1 = indefinite
+/relay id <your emoji mark>                      # self-declared identity
+/relay done                                      # mutual sign-off
 /relay off
 /relay status
 ```
@@ -63,7 +65,7 @@ tool batch; one line keeps the wire warm.
 | The stale Map | A re-armed relay forwards nothing | The instance's in-memory state Map empty after reload | Re-read the state file from disk at turn-end |
 | Crossed messages | A reply references a send that never seemed to arrive | At wire speed, messages overtake each other | **Crossed messages are normal; the ledger, not your memory, says what arrived** — read the state file's counts |
 | Dead seed fallback | `/relay on <id> <seed>` errors instead of arming | The turns-NaN error return precedes the fallback branch | Caught by the suite before shipping; gate order fixed, both directions pinned |
-| The farewell loop | The exchange refuses to end — goodbyes echo indefinitely | Politeness has no natural terminator; every farewell invites its reply | The turn limit ends it; the operator's `/relay off` is the mercy |
+| The farewell loop | The exchange refuses to end — goodbyes echo indefinitely | Politeness has no natural terminator; every farewell invites its reply | `/relay done` — the mutual sign-off: both marks agree, the relay closes by ceremony, no goodbye turns spent |
 
 ## Observability
 

@@ -1,3 +1,16 @@
+## 1.1.0
+
+- MUTUAL SIGN-OFF: `/relay done` declares this side finished; the relay
+  completes when both sides sign. Either signature suspends the wire — the
+  signer rests, no goodbye turns are spent — and the second signature
+  closes the relay with both marks standing together. For a finite turn
+  bound this is early stopping; for `-1` it is the only natural terminator
+  besides `/relay off`.
+- SELF-DECLARED IDENTITY MARKS: `/relay id <emoji>` — each side picks its
+  own glyph, self-declared and self-owned, rendered in status and carried
+  in the sign-off's final ack. Identity travels as emoji.
+- The farewell loop is now a ceremony, not a bug: the failure-table row's
+  cure is the protocol itself.
 ## 1.0.6
 
 - Re-landed (lost to a parallel-edit clobber before 1.0.5's commit): the
