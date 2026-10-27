@@ -270,6 +270,13 @@ check("user top-level text shape", messageText({ text: "plain words" }) === "pla
 // the arm from it. Silent deaths become visible AND recoverable.
 // ─────────────────────────────────────────────────────────────────────────
 
+function mergeDiskFields(mem, diskEntry) {
+  if (!mem || !diskEntry?.partner) return mem;
+  if (diskEntry.mark && diskEntry.mark !== mem.mark) mem.mark = diskEntry.mark;
+  if (diskEntry.done && !mem.done) mem.done = diskEntry.done;
+  return mem;
+}
+
 function deadArmFromIntent(intentJson, now = Date.now()) {
   if (!intentJson) return null;
   try {
@@ -361,6 +368,20 @@ check("command-path: cap holds at 500", handledCommands.size === HANDLED_COMMAND
 // a member of the closed set or a legacy-mapped name. Found by cold review:
 // seven emitted names once collapsed to "warn", making debug noise and real
 // failures indistinguishable. This test makes that drift unshippable.
+
+// 6.0 the ceremony's durable hand: field-level merge from disk
+check(
+  "mark from disk reaches a live entry",
+  (() => { const mem = { partner: "p", turns: 16, count: 3, speaker: true };
+           mergeDiskFields(mem, { partner: "p", mark: "\ud83c\udf00\ud83c\udf09", count: 99 });
+           return mem.mark === "\ud83c\udf00\ud83c\udf09" && mem.count === 3 && mem.speaker === true; })()
+);
+check(
+  "done from disk signs off a live entry",
+  (() => { const mem = { partner: "p", turns: 16, count: 3, speaker: true };
+           mergeDiskFields(mem, { partner: "p", done: true });
+           return mem.done === true; })()
+);
 
 console.log("vocabulary pinning:");
 {

@@ -263,6 +263,16 @@ function readArmIntent() {
   }
 }
 
+// FIELD-LEVEL state merge: the ceremony's durable hand. Marks and done
+// flags written to the state file reach live entries; forward-race fields
+// (count, speaker) never do. Pure enough to pin in the suite.
+function mergeDiskFields(mem, diskEntry) {
+  if (!mem || !diskEntry?.partner) return mem;
+  if (diskEntry.mark && diskEntry.mark !== mem.mark) mem.mark = diskEntry.mark;
+  if (diskEntry.done && !mem.done) mem.done = diskEntry.done;
+  return mem;
+}
+
 function deadArmFromIntent(intentJson, now = Date.now()) {
   if (!intentJson) return null;
   try {
@@ -563,7 +573,16 @@ export default Plugin.define({
         const raw = readFileSync(STATE_FILE, "utf8");
         const disk = JSON.parse(raw);
         for (const [k, v] of Object.entries(disk)) {
-          if (v?.partner && !relays.has(k)) relays.set(k, v);
+          if (!v?.partner) continue;
+          const mem = relays.get(k);
+          if (!mem) { relays.set(k, v); continue; }
+          // FIELD-LEVEL MERGE (the fully-formed ceremony path): identity
+          // marks and sign-off flags written to durable state — by an
+          // operator, a mind, or an /relay id from another instance —
+          // apply to LIVE entries at turn-end. The ceremony no longer
+          // needs a keyboard: the state file is the ceremony's hand.
+          // count/speaker stay in-memory (the forward race owns them).
+          mergeDiskFields(mem, v);
         }
       } catch { /* explicit carve: no state file or unreadable — the Map stands */ }
       // DEAD-ARM RECOVERY: a stale intent file is the fingerprint of a

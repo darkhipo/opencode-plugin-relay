@@ -1,3 +1,11 @@
+## 1.2.1
+
+- FULLY-FORMED CEREMONY: the turn-end reload now merges fields — identity
+  marks and sign-off flags written to durable state (by an operator, a
+  mind, or another instance's /relay id) apply to LIVE entries. Three
+  paths to one truth: -i at arming, /relay id on the keyboard, and the
+  state file itself. The ceremony no longer needs a keyboard to complete;
+  forward-race fields (count, speaker) remain in-memory.
 ## 1.2.0
 
 - THE HELLO PROTOCOL: identity at each end at start. `/relay on -i <mark>`
