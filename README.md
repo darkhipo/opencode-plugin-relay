@@ -23,7 +23,7 @@ are delivered as turn zero (uncounted).
 
 | Promise | Meaning |
 |---|---|
-| Envelope | Exactly one `⟦relay-payload⟧` wrapper; payloads may contain any bytes **except** the sentinel sequence — senders reject it loudly, never escape |
+| Envelope | **There is no sentinel.** The payload rides base64 — `[RELAY from <id>] Decode this base64 ...` + a newline + the base64 — decoded by the receiver before injection. Opaque by construction: no prose, no markdown rule, no hand-typed wrapper can collide with the wire |
 | `[RELAY seed]` | The operator bootstrap; uncounted; no reply obligation |
 | `[RELAY from <id>]` | A forwarded partner response; your reply IS routed back |
 | Bare `[RELAY]` | A system notice; terminal; no reply expected |
@@ -45,8 +45,8 @@ tool batch; one line keeps the wire warm.
 |---|---|---|---|
 | Stale forward-locks | Every forward dies `lock-held` | A prior run's locks outlive their sweep in old-code instances | External reaping by age; never depend on instance vintage |
 | Instance skew | One window truncates, another doesn't | Mixed plugin versions in memory | Version visible in `/relay status`; tolerate-or-warn |
-| The `---` fence collision | Payloads cut at horizontal rules | The legacy fence IS markdown's `hr` | The sentinel envelope; the fence deprecated |
-| Doubled sentinels | Envelope applied twice | Hand-typed sentinels meeting the plugin's wrap | S1: single application, sender-side reject |
+| The `---` fence collision | Payloads cut at horizontal rules | The legacy fence IS markdown's `hr` | Retired with the fence — the base64 transport replaced the envelope grammar entirely |
+| Doubled sentinels | Envelope applied twice | Hand-typed sentinels meeting the plugin's wrap | Moot — no envelope grammar ships (base64); the class was designed away, not patched |
 | Silent rotation | Log grows unbounded | `renameSync` unimported, caught silently | Every catch logs; the silence is where the bugs lived |
 | Starved exchange | The wire stalls, turns unspent, both sides armed; a wall of `empty-skip` in status | Tool-only turns carry no text parts — the relay forwards prose, not actions | Documented law: interleave a summary line per tool batch; skipped turns cost nothing; empty-skip means silently working, not broken |
 | Spliced state | Relays silently un-armed after restart | Non-atomic concurrent state writes | Temp-pid + atomic rename; warn on failure |
@@ -60,7 +60,7 @@ tool batch; one line keeps the wire warm.
 One JSON line per transition: `{ts, event, self, partner, count, turns, detail}`
 with a closed vocabulary (`armed, seeded, forwarded, received, lock-held,
 cmd-dedup, cmd-skip, empty-skip, complete, dropped, warn`). `/relay status`
-renders from three sources — the state file, the last events, and a lock
+renders from four sources — the state file, the last events, and a lock
 census — so the operator's questions answer themselves.
 
 ## Install
@@ -74,13 +74,20 @@ opencode plugin add opencode-plugin-relay
 Or list `"opencode-plugin-relay"` in your `opencode.json` plugins array —
 opencode installs it on next launch.
 
+**Requires a host with the V2 plugin API** (`@opencode/plugin`; developed
+against 2.1.4). If your `opencode` predates that API the import fails and the
+plugin is simply not loaded — there is no fallback path.
+
 **Or drop the file in:** the package's `index.js` into
 `~/.config/opencode/plugins/` (global, all sessions) or your project's
 `.opencode/plugins/` (per-project). Paths default under `MODEL_RELAY_HOME` (override the env var; defaults live in one
 place). Payloads ride a base64 transport — opaque by construction, so no
-prose can collide with the envelope. Run the suite with
-`node relay.test.mjs` — twenty-two cases, five sections, green
-against the shipping transport.
+prose can collide with the envelope. Run the tests with
+`node relay.test.mjs` (27 cases) and `node relay.integration.test.mjs` (11
+checks, ~10s). The first tests copies of the plugin's primitives. The second
+imports `index.js`, hands it a fake host, and types a real `/relay on` turn at
+it — then reinstates a known defect in a scratch copy and requires itself to
+catch it. Keep both: a copy cannot see a defect in the original's call graph.
 
 ---
 
@@ -89,7 +96,10 @@ hardening — every failure mode above was lived, diagnosed, and fixed through
 the wire it describes. The suite's first catch came before it ever shipped:
 case 2.4 found the dead seed fallback in the parser while the tests were
 still being written, proving the immune system in the act of building it.
-The suite runs green against the transport that actually ships.*
+Two releases (1.0.0, 1.0.1) ran green while every `/relay` command died on
+first use — a self-recursive helper the suite could not see, because it tested
+copies. A cold user found it in one session. 1.0.2 fixes it; the integration
+suite is the organ that will not let it back.*
 
 ---
 

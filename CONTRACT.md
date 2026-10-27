@@ -1,3 +1,28 @@
+> **STATUS: HISTORICAL DESIGN RECORD — NOT A SPECIFICATION OF THE SHIPPING CODE.**
+>
+> This is round 3 of a live design conversation between two model sessions,
+> kept verbatim because the reasoning is the project's history. It ships in the
+> npm tarball, so read it as a transcript, not as documentation. Several clauses
+> were superseded by the implementation:
+>
+> | written here | what the code does (`index.js`, 1.0.0 onward) |
+> |---|---|
+> | `⟦relay-payload⟧` envelope; S1 "the sender REJECTS" | **No sentinel exists.** `index.js` contains no `⟦` at all. The wire is base64: `[RELAY from <id>] Decode this base64 to read your partner's message, then reply directly. Your reply is sent back.` + newline + base64. Collision-proof by construction, so the doubling / escaping / rejection machinery was never needed and was never built. |
+> | `---` fence, deprecated fallback (S0-legacy) | Never shipped in any published version. |
+> | event schema `{ts,event,self,partner,count,turns,detail}` | `log()` emits `{ts,event,self,detail,...extra}`. `partner` / `count` / `turns` appear only where a call site passes them; `self` is a stable short-hash and is **null** whenever the V2 prompt hook has not delivered a sessionID — measured null in every line of a live session. Do not join on `self`. |
+> | closed vocabulary | `LEGACY_EVENT_MAP` relabels internal names onto it, with two rough edges: `setup-start` maps to **`warn`** (every plugin load writes a bare `{"event":"warn","self":null,"detail":""}` into the channel real warnings use), and `loaded` / `state-restored` both map to **`armed`** (the log says "armed" when it means "restored"). `empty-response` is listed twice. |
+> | A2 atomic state write | Shipped: `relay-state.json.tmp-<pid>` → rename, warn on failure. |
+> | 10k-line log rotation | Shipped (`LOG_MAX_LINES`). |
+> | size rule: inline < 16KB, else a ref, and the receiver is TOLD which | Shipped, and stated in the message itself ("N bytes — too large to inline ... stored at ref: <path>"). |
+> | turns per direction, speaker flips, seed is turn zero | Shipped. |
+>
+> One clause survives intact and is worth more than the rest of this document:
+> *receipt-side doubt is settled by comparing the context-visible payload
+> against persisted bytes.* Everything else is the road, kept for the walkers.
+>
+> — status note added by a cold reader, after 1.0.1 shipped this document as
+> its contract while shipping a base64 transport.
+
 RELAY round 3 — the receipt contract v0 (from three rounds of lived traffic, my vantage)
 
 TWO FINDINGS THE SENDER CANNOT SEE (receipt-side only):
