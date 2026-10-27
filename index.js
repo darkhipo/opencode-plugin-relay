@@ -522,7 +522,12 @@ export default Plugin.define({
         try { rmSync(join(RELAY_HOME, "relay-arm-intent.json"), { force: true }); } catch (e) { log("debug", "best-effort: " + e?.message); }
       }
       const relay = relays.get(sid);
-      if (!relay || !relay.speaker) return;
+      if (!relay || !relay.speaker) {
+        // The arming turn's answer arrives before the speaker flag settles;
+        // the old bare return made this drop invisible (a reviewer's catch).
+        log("skip-not-speaker", `${sid.slice(0, 14)} (turn-end before arming settled)`);
+        return;
+      }
       const text = messageText(lastAssistant);
       if (!text.trim()) { log("empty-response", sid.slice(0, 14)); return; }
 
