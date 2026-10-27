@@ -5,7 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "node relay.test.mjs && node relay.integration.test.mjs"
+    "test": "node relay.test.mjs && node relay.integration.test.mjs",
+    "prepublishOnly": "node check_publish_ready.mjs"
   },
   "keywords": [
     "opencode",
@@ -27,7 +28,8 @@
     "README.md",
     "CONTRACT.md",
     "relay.test.mjs",
-    "relay.integration.test.mjs"
+    "relay.integration.test.mjs",
+    "check_publish_ready.mjs"
   ],
   "peerDependencies": {
     "@opencode/plugin": "*"
