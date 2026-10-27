@@ -1,3 +1,9 @@
+## 1.3.3
+
+- README: a Releasing section — bump, commit, tag, push; CI publishes on the
+  tag. A hand-run `npm publish` fails loudly with E409 and reddens the tag's
+  CI run (measured on v1.3.2).
+
 ## 1.3.2
 
 - The publish helper is JavaScript: `scripts/publish_github_packages.mjs`,

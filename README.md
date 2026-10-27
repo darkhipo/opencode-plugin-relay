@@ -111,6 +111,20 @@ suite is the organ that will not let it back.*
 
 ---
 
+## Releasing
+
+Bump `version` in `package.json`, commit, then tag and push the tag:
+
+```
+git tag -a v<version> -m "<what changed>"
+git push origin main v<version>
+```
+
+CI publishes on the tag (it refuses if the tag and the version disagree). Do
+not run `npm publish` by hand — the second upload is refused with `E409` and
+the tag's CI run goes red. `npm run publish:github` mirrors a release to
+GitHub Packages under the scoped name.
+
 ## License
 
 Free by dedication with exactly one provision: nobody may license, restrict,
