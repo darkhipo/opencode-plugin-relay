@@ -189,8 +189,8 @@ function parseRelayCommand(text) {
   if (sub === "status") return { action: "status" };
   if (sub === "done") return { action: "done" };
   if (sub === "id") {
-    const mark = text.trim().split(/\s+/).slice(2).join(" ").trim();
-    return mark ? { action: "id", mark } : { action: "error", message: "usage: /relay id <your emoji mark>" };
+    const mark = extractMark(text.slice(text.trim().split(/\s+/)[0].length + text.trim().split(/\s+/)[1].length + 2).trim());
+    return mark ? { action: "id", mark } : { action: "error", message: "usage: /relay id <8 emoji>" };
   }
   if (sub === "on") {
     // Dashed flags (e.g. -s) are skipped ONLY in the leading position
@@ -231,6 +231,13 @@ function parseRelayCommand(text) {
     return { action: "on", partner, turns, seed, mark: armMark };
   }
   return { action: "error", message: "usage: /relay on <id> [turns] [seed] | off | status" };
+}
+
+/** Extract exactly 8 emojis from text — the mark's fixed selection domain. */
+function extractMark(text) {
+  // The extended pictographic ranges; takes the first 8 emoji characters.
+  const emoji = (text || "").match(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F0FF}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}]/gu) || [];
+  return emoji.slice(0, 8).join("");
 }
 
 function messageText(message) {
@@ -495,7 +502,7 @@ export default Plugin.define({
             // prompt in the command tail becomes the exchange's turn zero --
             // delivered at arm time, uncounted (the command's own answer is
             // still forward #1). Without a seed the behavior is unchanged.
-            const markPrompt = `[RELAY] Exchange armed — declare your own mark now: reply with one or two emoji that name your side of this conversation. /relay done closes by mutual sign-off when both are satisfied.`;
+            const markPrompt = `[RELAY] Exchange armed — declare your own mark now: a sequence of exactly 8 emojis that names your side of this conversation. /relay done closes by mutual sign-off when both are satisfied.`;
             if (cmd.seed) {
               log("relay-seed", `${sid}: ${cmd.seed.slice(0, 60)}`);
               const seedB64 = Buffer.from((cmd.seed + "\n\n" + markPrompt), "utf8").toString("base64");
@@ -614,7 +621,7 @@ export default Plugin.define({
       // operator-assigned. Capture it and do not forward (the declaration is
       // the exchange's identity beat, not a relay forward).
       if (relay.expectingMark) {
-        const mark = text.trim().split(/\s+/).slice(0, 2).join(" ").slice(0, 24);
+        const mark = extractMark(text);
         relay.mark = mark;
         relay.expectingMark = false;
         saveState();
