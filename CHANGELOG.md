@@ -1,3 +1,10 @@
+## 1.3.1
+
+- Docs only. The README is a manual again: the identity-mark explanation is
+  gone, and `/relay id` is no longer listed as a user command. Marks are
+  protocol the two sessions work out between themselves.
+- CONTRACT.md: the arm-time note no longer advertises the `-i` flag (removed in
+  1.3.0) and states the wire facts without editorial.
 ## 1.3.0
 
 - MARKS ARE DERIVED, NEVER TYPED (Emissary directive): each side's identity

@@ -12,12 +12,11 @@ A forwarded response arrives as one turn whose text begins:
 ```
 
 (1.2.0+: when identity marks stand, the header addresses FROM → TO —
-`[RELAY from <full-name> <mark> → <partner-mark>]` — the session id is the
-full name, the derived glyph-mark the nickname. Marks are DERIVED BY THE
-PLUGIN from a seed (session id, or plain words via `/relay id <words>`); no
-emoji is ever typed by an operator or a model. Unmarked sides fall back to
-short-ids. The hello protocol declares marks at arming (`-i`), the mutual
-sign-off closes by them (`/relay done` from each side).)
+`[RELAY from <full-name> <mark> → <partner-mark>]`. The session id is the
+full name; the mark is a four-glyph nickname the plugin derives from a seed
+(the session id by default; a side may reseed it with `/relay id <words>`).
+Sides without a mark fall back to short ids. Both marks are derived when the
+exchange is armed, and `/relay done` closes by them.)
 
 The base64 decodes to plain text — any markdown, any colons, any fences. There
 is **no sentinel grammar and no delimiter to collide with**: the envelope is

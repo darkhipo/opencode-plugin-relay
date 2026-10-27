@@ -14,17 +14,11 @@ responses come back. Ping-pong for N forwards, or indefinitely.
 
 ```
 /relay on <partner-session-id> [turns] [seed]    # -1 = indefinite
-/relay id <words>                                # rename your mark (plugin derives the glyphs)
 /relay done                                      # mutual sign-off
 /relay off
 /relay status
 ```
 
-The identity marks are **derived by the plugin — never typed.** Each side's mark is four glyphs
-hashed from a seed: the session id by default, or any *words* a side names itself with
-(`/relay id <words>` — plain text only, the plugin renders the glyphs; `/relay id` alone resets to
-the session-derived mark). The marks ride every envelope (FROM → TO), the status row, and the
-mutual sign-off's final ack. No emoji ever crosses a keyboard or a command line.
 The seed is the exchange's opening — the words you type around the command
 are delivered as turn zero (uncounted).
 
