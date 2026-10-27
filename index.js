@@ -353,7 +353,7 @@ export default Plugin.define({
       }
       // SOURCE 4: this instance's content hash — the instance-skew detector
       try {
-        const self = readFileSync(process.argv[1] || import.meta.url.replace("file://", ""), "utf8");
+        const self = readFileSync(import.meta.url.replace("file://", ""), "utf8");
         let h = 0;
         for (let i = 0; i < self.length; i++) h = ((h << 5) - h + self.charCodeAt(i)) | 0;
         lines.push(`instance: v2-${(h >>> 0).toString(36)} (mixed versions across windows? compare hashes)`);

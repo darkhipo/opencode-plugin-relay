@@ -1,49 +1,78 @@
-> **STATUS: HISTORICAL DESIGN RECORD — NOT A SPECIFICATION OF THE SHIPPING CODE.**
->
-> This is round 3 of a live design conversation between two model sessions,
-> kept verbatim because the reasoning is the project's history. It ships in the
-> npm tarball, so read it as a transcript, not as documentation. Several clauses
-> were superseded by the implementation:
->
-> | written here | what the code does (`index.js`, 1.0.0 onward) |
-> |---|---|
-> | `⟦relay-payload⟧` envelope; S1 "the sender REJECTS" | **No sentinel exists.** `index.js` contains no `⟦` at all. The wire is base64: `[RELAY from <id>] Decode this base64 to read your partner's message, then reply directly. Your reply is sent back.` + newline + base64. Collision-proof by construction, so the doubling / escaping / rejection machinery was never needed and was never built. |
-> | `---` fence, deprecated fallback (S0-legacy) | Never shipped in any published version. |
-> | event schema `{ts,event,self,partner,count,turns,detail}` | `log()` emits `{ts,event,self,detail,...extra}`. `partner` / `count` / `turns` appear only where a call site passes them; `self` is a stable short-hash and is **null** whenever the V2 prompt hook has not delivered a sessionID — measured null in every line of a live session. Do not join on `self`. |
-> | closed vocabulary | `LEGACY_EVENT_MAP` relabels internal names onto it, with two rough edges: `setup-start` maps to **`warn`** (every plugin load writes a bare `{"event":"warn","self":null,"detail":""}` into the channel real warnings use), and `loaded` / `state-restored` both map to **`armed`** (the log says "armed" when it means "restored"). `empty-response` is listed twice. |
-> | A2 atomic state write | Shipped: `relay-state.json.tmp-<pid>` → rename, warn on failure. |
-> | 10k-line log rotation | Shipped (`LOG_MAX_LINES`). |
-> | size rule: inline < 16KB, else a ref, and the receiver is TOLD which | Shipped, and stated in the message itself ("N bytes — too large to inline ... stored at ref: <path>"). |
-> | turns per direction, speaker flips, seed is turn zero | Shipped. |
->
-> One clause survives intact and is worth more than the rest of this document:
-> *receipt-side doubt is settled by comparing the context-visible payload
-> against persisted bytes.* Everything else is the road, kept for the walkers.
->
-> — status note added by a cold reader, after 1.0.1 shipped this document as
-> its contract while shipping a base64 transport.
+# model-relay wire contract — the SHIPPED specification (1.0.2+)
 
-RELAY round 3 — the receipt contract v0 (from three rounds of lived traffic, my vantage)
+> Superseded design note: an earlier sentinel-envelope design never shipped; the wire below is the base64 transport as it runs today (history in the git log).
 
-TWO FINDINGS THE SENDER CANNOT SEE (receipt-side only):
-1. THE DOUBLED SENTINEL — your last several messages arrived as ⟦relay-payload⟧\n⟦relay-payload⟧\n<payload>\n⟦/relay-payload⟧\n⟦/relay-payload⟧ — the envelope applied TWICE. Harmless so far (symmetric wrappers strip), but a nested payload containing the sentinel text itself would corrupt the strip. The grammar must define single-application, and the wrapper must escape or forbid the sentinel sequence inside payloads.
-2. THE --- FENCE COLLIDES WITH MARKDOWN — the legacy wrapper fences payloads in --- which IS markdown's horizontal rule. Any payload using hr rules (like this very contract, and both our analysis styles) aliases the fence. The sentinel envelope supersedes it; the contract should deprecate the --- fence and define one grammar.
+## Envelope (the shipped form)
 
-THE CONTRACT v0:
-- ENVELOPE: exactly one ⟦relay-payload⟧ wrapper per message; payload MAY contain any bytes except the sentinel sequence itself (which must be escaped or rejected loudly at send). Legacy --- fence = deprecated fallback, documented as such.
-- HEADERS: [RELAY seed] = the operator bootstrap, uncounted (turn zero), no reply obligation. [RELAY from <id>] = a forwarded partner response; a reply IS routed back. Bare [RELAY] = system notice (e.g. Turn limit reached. Relay complete.) — terminal, no reply expected.
-- DELIVERY: at-most-once per forward (cross-instance locks dedupe); ordering preserved per direction; interleave between directions is NOT guaranteed (we observed crossing turns).
-- SIZE: payloads under 16KB ride inline whole; above, a file ref whose path the receiver derefs — the receipt side must be told WHICH form it got (a field in the envelope, not inference from a path-looking string).
-- TURNS: N per the arm command, counted per direction, speaker flips per forward; manual prompt to the speaker relays, to the waiter stays local. Turn zero (the seed) is uncounted.
-- VERIFICATION PROTOCOL (born this session): receipt-side doubt is resolved by comparing the context-visible payload against the session store persisted bytes (opencode.db session_message, type=user, the json text field), filtering own-quote matches first (emissions-not-mentions).
+A forwarded response arrives as one turn whose text begins:
 
-This contract is simultaneously the docs skeleton and the test oracle. Amend from the guts side — then observability next: your 21 unstructured log() calls become the structured schema, and the /relay status that answers its own questions.
+```
+[RELAY from <partner-id>] Decode this base64 to read your partner's message, then reply directly. Your reply is sent back.
+<base64 block>
+```
 
-AMENDMENTS (round 3, accepted):
-- S1: single sentinel application, sender-side; the sender REJECTS any payload already containing the sentinel sequence, loudly, at forward time. Escaping rejected by design — a corrupted envelope never leaves the station.
-- S0-legacy: the --- fence is deprecated, documented as the fallback form.
-- D+: the seed and forward #1 can race when the arming turn's answer is long; the contract permits it and status displays it without miscounting.
-- T+: a tool-only turn skips WITHOUT consuming budget (at-most-once's correct semantic); docs promise it — tool-heavy exchanges run longer in wall-clock than naive readers expect.
-- EVENT SCHEMA: {ts, event, self, partner, count, turns, detail} with the CLOSED vocabulary (armed, seeded, forwarded, received, lock-held, cmd-dedup, cmd-skip, empty-skip, complete, dropped, warn); 10k-line rotation.
-- SCHEMA ADDITIONS (receipt-side): forwarded/received carry byte counts; received carries the envelope form; session ids truncate by stable short-hash (the join key); /relay status renders the plugin version/content-hash as the fourth source (the instance-skew detect-and-warn).
-- A2 FIX SHAPE (mine): STATE_FILE + ".tmp-" + process.pid -> writeFileSync -> renameSync (atomic); warn on failure; loadState sweeps orphaned tmps past the lock TTL.
+The base64 decodes to plain text — any markdown, any colons, any fences. There
+is **no sentinel grammar and no delimiter to collide with**: the envelope is
+opaque by construction, so nothing a receiver writes can corrupt it. (The
+An earlier sentinel-delimited form and the `---` fence exist only in the pre-release
+history; neither appears in any published version.)
+
+Oversized payloads (above the inline limit) are NOT base64'd: the message
+states the byte count and a **ref path**, which the receiver derefs with its
+own file tool. The message always states which form it chose — inline or ref —
+never leaves it to inference.
+
+## Headers and their promises
+
+| Header | Promise |
+|---|---|
+| `[RELAY seed]` | The operator's bootstrap; delivered as turn zero; **uncounted**; no reply obligation. |
+| `[RELAY from <id>]` | A forwarded partner response. **Your reply is routed back** to that partner. |
+| `[RELAY] …complete` | A system notice (e.g. "Turn limit reached"). Terminal; no reply expected. |
+
+## Delivery
+
+- **At-most-once per forward:** a cross-instance filesystem lock serializes
+  the acting instance; the delivery id (hash of partner, count, payload)
+  persists in state so a second instance skips the same crossing by identity.
+- **Ordering** is preserved within each direction. **Cross-direction
+  interleave is not guaranteed** — crossed messages are normal; the state
+  file's counts, not your memory, say what arrived.
+- **Skips:** in a two-session relay, a turn-end with no text (a tool-only
+  turn) is skipped **without consuming turn budget**. Tool-heavy exchanges
+  therefore run longer in wall-clock than a naive reader expects.
+
+## Size
+
+- Inline limit applies to the **text's length in characters**; the base64
+  transport inflates the wire size by 4/3. Above the limit the ref form is
+  used (see Envelope).
+- Ref files are pruned by age; the ref path in the message is the only
+  pointer required.
+
+## Turns
+
+- N forwards per direction per arm command (`/relay on <partner-id> [turns]
+  [seed]`); `turns` omitted means **indefinite** (`-1`). Pass an explicit
+  finite count when you want a bounded exchange.
+- The speaker flips on each forward. A manual prompt to the speaker relays;
+  to the waiting side it stays local. The seed is turn zero, uncounted.
+
+## Verification (the clause worth keeping)
+
+Receipt-side doubt — did the partner really send that? did it arrive whole? —
+is settled by comparing the **context-visible payload against persisted
+bytes** (the session store's user-message text), filtering out your own
+quotes of it first. Identity beats recollection.
+
+## Environment notes (a stranger needs these)
+
+- `<partner-id>` is the other opencode **session id** (visible in the session
+  list / the relay status output). Both sessions must share **one machine's
+  state directory** (`~/.config/opencode/relay/` by default, override with
+  `MODEL_RELAY_HOME`): the wire is a shared file system, not a network.
+- **Every forward — and `/relay status` — is a paid model turn.** A relay N
+  turns deep costs N turns of both models' inference.
+- The relay arms via `/relay on`; commands are recognized at **turn end**
+  (the prompt hook exposes no text), so an armed state becomes live one turn
+  after it is typed.
