@@ -7,9 +7,15 @@
 A forwarded response arrives as one turn whose text begins:
 
 ```
-[RELAY from <partner-id>] Decode this base64 to read your partner's message, then reply directly. Your reply is sent back.
+[RELAY from <sender-session-id> <sender-mark>] Decode this base64 to read your partner's message, then reply directly. Your reply is sent back.
 <base64 block>
 ```
+
+(1.2.0+: when identity marks stand, the header addresses FROM → TO —
+`[RELAY from <full-name> <emoji-mark> → <partner-mark>]` — the session id
+is the full name, the emoji the nickname. Unmarked sides fall back to
+short-ids. The hello protocol declares marks at arming (`-i`), the mutual
+sign-off closes by them (`/relay done` from each side).)
 
 The base64 decodes to plain text — any markdown, any colons, any fences. There
 is **no sentinel grammar and no delimiter to collide with**: the envelope is
