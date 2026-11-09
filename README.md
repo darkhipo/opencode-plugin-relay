@@ -127,6 +127,6 @@ GitHub Packages under the scoped name.
 
 ## License
 
-Free by dedication with exactly one provision: nobody may license, restrict,
+Released under the [Copy-Free/Stays-Free (CFSF) License](https://github.com/darkhipo/cfsf) — free by dedication with exactly one provision: nobody may license, restrict,
 or claim ownership of this work or any copy of it. Use it any which way —
 it stays free for everyone, everywhere, always. See LICENSE.
